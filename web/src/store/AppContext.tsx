@@ -37,7 +37,6 @@ type AppContextValue = {
   locate: () => Promise<void>
   login: (username: string, password: string) => Promise<void>
   register: (payload: RegisterPayload) => Promise<void>
-  demoLogin: () => Promise<void>
   logout: () => void
   refresh: () => Promise<void>
   applyMe: (me: Me) => void
@@ -195,8 +194,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [],
   )
 
-  const demoLogin = useCallback(() => loginWith("ivan_p", "secret123"), [loginWith])
-
   const logout = useCallback(() => {
     api.logout().catch(() => undefined)
     forceLogout()
@@ -294,7 +291,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       locate,
       login,
       register,
-      demoLogin,
       logout,
       refresh,
       applyMe,
@@ -315,7 +311,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       locate,
       login,
       register,
-      demoLogin,
       logout,
       refresh,
       applyMe,

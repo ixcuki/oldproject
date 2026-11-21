@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Camera, Eye, EyeOff, GraduationCap, MapPin, Sparkles } from "lucide-react"
+import { Camera, Eye, EyeOff, GraduationCap, MapPin } from "lucide-react"
 import { Logo, Skyline, Wordmark } from "@/components/Brand"
 import { Avatar } from "@/components/Avatar"
 import { Input } from "@/components/ui/input"
@@ -33,7 +33,7 @@ const inputClass =
   "h-12 rounded-[14px] border-uni-line bg-white px-3.5 text-[14px] font-bold placeholder:text-uni-muted/55"
 
 export function AuthPage() {
-  const { login, register, demoLogin } = useApp()
+  const { login, register } = useApp()
   const { toast } = useToast()
   const navigate = useNavigate()
   const fileRef = useRef<HTMLInputElement>(null)
@@ -96,19 +96,6 @@ export function AuthPage() {
         exception instanceof Error ? exception.message : "Не получилось войти"
       setError(message)
       toast(message, "error")
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const demo = async () => {
-    setError(null)
-    setBusy(true)
-    try {
-      await demoLogin()
-      navigate("/map", { replace: true })
-    } catch (exception) {
-      setError(exception instanceof Error ? exception.message : "Демо недоступно")
     } finally {
       setBusy(false)
     }
@@ -366,15 +353,6 @@ export function AuthPage() {
             className="pressable flex h-12 w-full items-center justify-center gap-2 rounded-[14px] bg-uni-brand text-[15px] font-extrabold text-white shadow-[0_0_20px_rgba(124,92,224,0.22)] disabled:opacity-60"
           >
             {busy ? "Подключаемся…" : mode === "register" ? "Создать профиль" : "Войти"}
-          </button>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => void demo()}
-            className="pressable mt-2 flex h-10 w-full items-center justify-center gap-2 rounded-[13px] border border-[#B9A2F0] bg-white text-[12px] font-extrabold text-uni-brand-deep"
-          >
-            <Sparkles size={14} />
-            Демо-вход: Иван Петров · 320 XP
           </button>
           <p className="mt-2 text-center text-[10.5px] font-semibold text-uni-muted">
             {mode === "register" ? (
