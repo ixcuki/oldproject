@@ -8,6 +8,42 @@ from typing import Any, Dict, List, Optional
 CITY = "Саратов"
 CAMPUS = "СГУ"
 
+DEFAULT_EMOJI = "📍"
+
+# ---------------------------------------------------------------------------
+# Profanity filter
+# ---------------------------------------------------------------------------
+
+_PROFANITY = re.compile(
+    r"(?:"
+    # Russian mat (root forms, covers common inflections)
+    r"х[уy]й|х[уy]ю|х[уy]я|хуёв|хуев|хуил|хуит|нахуй|захуй|похуй|пох[уy]|ёб(?:ан|ут|ать|аный|аная)|"
+    r"еб(?:ан|ут|ать|аный|аная)|[её]б[её]т|[её]б[её]ш|[её]бал|[её]бла|[её]бну|заеб|наеб|пиздец|"
+    r"пизд(?:а|у|ы|е|ой|ёж|ить|ит|ят|ят|ёт)|пизда|мудак|мудил|мудозв|"
+    r"бля(?:дь|дская|дской)|бл[яь]|шлюх|шалав|"
+    r"[её]б(?:ать|ут|ёт|и[тш]ь|ись|ал|ала|али|ан|ана|аны|аное)|"
+    r"пидор|пидар|педик|гандон|залуп|"
+    r"(?:с[у]ч[каеию]|сучь|сучар)|"
+    # English profanity
+    r"f+u+c+k|f+[u@]ck(?:ing|er|ers|ed)?|sh[i1!]t(?:ty|ter)?|"
+    r"a+s+h+o+l+e?|b[i1!]tch(?:es)?|c[u@]nt|d[i1!]ck(?:s|head)?|"
+    r"(?:mother)?fucker|pussy(?:ies)?|bastard|wh[o0]re"
+    r")",
+    re.IGNORECASE | re.UNICODE,
+)
+
+
+def contains_profanity(text: str) -> bool:
+    """Return True when *text* contains a known profane word or root."""
+    # Normalise common leet / lookalike substitutions before matching
+    normalised = (
+        text.lower()
+        .replace("а", "a").replace("е", "e").replace("о", "o")
+        .replace("у", "y").replace("х", "x").replace("3", "e")
+        .replace("@", "a").replace("0", "o").replace("1", "i")
+    )
+    return bool(_PROFANITY.search(text) or _PROFANITY.search(normalised))
+
 UNIVERSITIES: List[Dict[str, str]] = [
     {
         "short": "СГУ",

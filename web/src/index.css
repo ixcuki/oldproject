@@ -418,11 +418,12 @@ select {
   from { transform: rotate(0deg); }
   to   { transform: rotate(360deg); }
 }
-.fire-ring {
-  position: relative;
-  display: inline-flex;
+.fire-ring-spin {
   animation: fireRotate 1.8s linear infinite;
+  background: conic-gradient(from 0deg, #FF4E00, #FF9A00, #FFD500, #FF4E00);
+  position: absolute;
+  inset: 0;
 }
 @media (prefers-reduced-motion: reduce) {
-  .fire-ring { animation: none; }
+  .fire-ring-spin { animation: none; }
 }

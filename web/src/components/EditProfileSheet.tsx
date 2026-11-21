@@ -62,9 +62,10 @@ function validateMaxsite(value: string): string | null {
 }
 
 const EMOJI_OPTIONS = [
-  "🔥", "⚡", "🎯", "🌟", "💡", "🚀", "🎵", "📚",
-  "🌿", "🎨", "🤖", "🦊", "🐱", "🐸", "🌈", "☕",
-  "🏆", "💎", "🎮", "🧩", "🌙", "✨", "🌊", "🍕",
+  "📍", "🔥", "⚡", "🎯", "🌟", "💡", "🚀", "🎵",
+  "📚", "🌿", "🎨", "🤖", "🦊", "🐱", "🐸", "🌈",
+  "☕", "🏆", "💎", "🎮", "🧩", "🌙", "✨", "🌊",
+  "🍕", "🎓", "🦉", "🦋", "🍀", "💬", "🐻", "⚽",
 ]
 
 export function EditProfileSheet({ open, onOpenChange }: EditProfileSheetProps) {
@@ -285,7 +286,7 @@ export function EditProfileSheet({ open, onOpenChange }: EditProfileSheetProps) 
             </div>
           ) : (
             <div className="rounded-[16px] border border-dashed border-uni-line bg-uni-soft/30 px-3.5 py-3 text-[11.5px] font-semibold text-uni-muted">
-              🔒 Эмодзи рядом с ником откроется на уровне 2 — «Исследователь»
+              📍 У тебя уже есть базовое эмодзи. Кастомные откроются на уровне 2 — «Исследователь»
             </div>
           )}
 

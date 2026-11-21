@@ -131,8 +131,9 @@ def _user_mini(row: sqlite3.Row) -> Dict[str, Any]:
         "university": row["university"],
         "faculty": row["faculty"],
         "avatar": row["avatar"],
-        "emoji": (row["emoji"] if "emoji" in keys else "") or "",
+        "emoji": (row["emoji"] if "emoji" in keys else "") or domain.DEFAULT_EMOJI,
         "level": level,
+        "levelNum": level,
     }
 
 
@@ -210,7 +211,7 @@ def _me(conn: sqlite3.Connection, user_id: int) -> Dict[str, Any]:
             "telegram": row["telegram"],
             "github": row["github"] if "github" in row.keys() else "",
             "maxsite": row["maxsite"] if "maxsite" in row.keys() else "",
-            "emoji": (row["emoji"] if "emoji" in row.keys() else "") or "",
+            "emoji": (row["emoji"] if "emoji" in row.keys() else "") or domain.DEFAULT_EMOJI,
             "xp": row["xp"],
             "level": domain.level_for(row["xp"]),
             "levelShort": _level_short(row["xp"]),
@@ -671,7 +672,7 @@ def create_app(db_path: str, seed_demo: bool = False) -> FastAPI:
         rows = conn.execute(
             """
             SELECT r.*, u.id AS user_id, u.first_name, u.last_name, u.username,
-                   u.university, u.faculty, u.avatar
+                   u.university, u.faculty, u.avatar, u.xp, COALESCE(u.emoji, '') AS emoji
             FROM reviews r JOIN users u ON u.id = r.user_id
             WHERE r.place_id = ? ORDER BY r.created_at DESC
             """,
@@ -706,6 +707,8 @@ def create_app(db_path: str, seed_demo: bool = False) -> FastAPI:
         text = payload.text.strip()
         if len(text) > 140:
             raise HTTPException(status_code=400, detail="Статус — до 140 символов")
+        if domain.contains_profanity(text):
+            raise HTTPException(status_code=400, detail="Запрещено использовать ненормативную лексику")
         ttl = int(payload.ttlMinutes or 60)
         if ttl < 15 or ttl > 180:
             raise HTTPException(status_code=400, detail="Статус живёт от 15 до 180 минут")
@@ -766,6 +769,8 @@ def create_app(db_path: str, seed_demo: bool = False) -> FastAPI:
         comment = payload.comment.strip()
         if len(comment) < 3 or len(comment) > 400:
             raise HTTPException(status_code=400, detail="Комментарий — от 3 до 400 символов")
+        if domain.contains_profanity(comment):
+            raise HTTPException(status_code=400, detail="Запрещено использовать ненормативную лексику")
         existing = conn.execute(
             "SELECT id FROM reviews WHERE place_id = ? AND user_id = ?",
             (place_id, int(user["id"])),
@@ -787,7 +792,7 @@ def create_app(db_path: str, seed_demo: bool = False) -> FastAPI:
         rows = conn.execute(
             """
             SELECT r.*, u.id AS user_id, u.first_name, u.last_name, u.username,
-                   u.university, u.faculty, u.avatar
+                   u.university, u.faculty, u.avatar, u.xp, COALESCE(u.emoji, '') AS emoji
             FROM reviews r JOIN users u ON u.id = r.user_id
             WHERE r.place_id = ? ORDER BY r.created_at DESC
             """,
@@ -839,6 +844,8 @@ def create_app(db_path: str, seed_demo: bool = False) -> FastAPI:
         text = payload.text.strip()
         if len(text) < 3 or len(text) > 280:
             raise HTTPException(status_code=400, detail="Текст — от 3 до 280 символов")
+        if domain.contains_profanity(text):
+            raise HTTPException(status_code=400, detail="Запрещено использовать ненормативную лексику")
         place_id = payload.placeId
         if place_id is not None:
             exists = conn.execute("SELECT id FROM places WHERE id = ?", (place_id,)).fetchone()
