@@ -23,7 +23,9 @@ import { useToast } from "@/components/ToastProvider"
 import { api } from "@/lib/api"
 import type { Me, Place } from "@/lib/types"
 import { toneColor } from "@/lib/format"
-import { cn } from "@/lib/utils"
+import { cn, haversineM } from "@/lib/utils"
+
+const STATUS_RADIUS_M = 700
 
 type StatusSheetProps = {
   open: boolean
@@ -35,7 +37,7 @@ type StatusSheetProps = {
 const SPOT_TYPES = new Set(["free", "players"])
 
 export function StatusSheet({ open, onOpenChange, defaultPlaceId, onSaved }: StatusSheetProps) {
-  const { places, meta, applyPlace, applyMe } = useApp()
+  const { places, meta, position, applyPlace, applyMe } = useApp()
   const { toast } = useToast()
   const [placeId, setPlaceId] = useState<string>("")
   const [type, setType] = useState("free")
@@ -44,18 +46,29 @@ export function StatusSheet({ open, onOpenChange, defaultPlaceId, onSaved }: Sta
   const [ttl, setTtl] = useState(60)
   const [busy, setBusy] = useState(false)
 
+  const nearbyPlaces = useMemo(() => {
+    if (!position) return places
+    return places.filter(
+      (p) => haversineM(position.lat, position.lng, p.lat, p.lng) <= STATUS_RADIUS_M,
+    )
+  }, [places, position])
+
   useEffect(() => {
     if (!open) return
-    const fallback = defaultPlaceId ?? places.find((place) => place.status)?.id ?? places[0]?.id
+    const pool = nearbyPlaces.length > 0 ? nearbyPlaces : places
+    const fallback =
+      defaultPlaceId ?? pool.find((place) => place.status)?.id ?? pool[0]?.id
     setPlaceId(fallback ? String(fallback) : "")
     setType("free")
     setText("")
     setSpots("")
     setTtl(60)
-  }, [open, defaultPlaceId, places])
+  }, [open, defaultPlaceId, nearbyPlaces, places])
 
   const types = useMemo(() => Object.entries(meta?.statusTypes ?? {}), [meta])
-  const currentPlace = places.find((place) => place.id === Number(placeId))
+  const visiblePlaces = nearbyPlaces.length > 0 || !position ? nearbyPlaces : places
+  const currentPlace = visiblePlaces.find((place) => place.id === Number(placeId))
+    ?? places.find((place) => place.id === Number(placeId))
   const needsSpots = SPOT_TYPES.has(type)
 
   const submit = async () => {
@@ -111,7 +124,7 @@ export function StatusSheet({ open, onOpenChange, defaultPlaceId, onSaved }: Sta
                 <SelectValue placeholder="Выбери место" />
               </SelectTrigger>
               <SelectContent className="max-h-[260px]">
-                {places.map((place) => (
+                {visiblePlaces.map((place) => (
                   <SelectItem key={place.id} value={String(place.id)}>
                     {place.name}
                   </SelectItem>
@@ -122,6 +135,16 @@ export function StatusSheet({ open, onOpenChange, defaultPlaceId, onSaved }: Sta
               <div className="flex items-center gap-1.5 text-[11.5px] font-bold text-uni-muted">
                 <MapPin size={13} /> {currentPlace.kindLabel} · {currentPlace.address}
               </div>
+            )}
+            {position && visiblePlaces.length === 0 && (
+              <p className="text-[11px] font-semibold text-uni-muted/70">
+                Нет мест в радиусе 700 м
+              </p>
+            )}
+            {!position && (
+              <p className="text-[11px] font-semibold text-uni-muted/70">
+                Включи геолокацию, чтобы видеть только ближайшие места
+              </p>
             )}
           </div>
 

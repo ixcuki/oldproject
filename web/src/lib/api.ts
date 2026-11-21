@@ -7,6 +7,7 @@ import type {
   Plan,
   Post,
   RegisterPayload,
+  UserProfile,
 } from "./types"
 
 const TOKEN_KEY = "unipulse_token"
@@ -128,6 +129,7 @@ export const api = {
     telegram: string
     github: string
     maxsite: string
+    emoji: string
     avatar?: string | null
   }) => request<{ me: Me }>("/me", { method: "PATCH", body: payload }),
 
@@ -188,4 +190,7 @@ export const api = {
 
   aiPlan: (query: string, lat?: number | null, lng?: number | null) =>
     request<Plan>("/ai/plan", { method: "POST", body: { query, lat, lng } }),
+
+  userProfile: (username: string) =>
+    request<UserProfile>(`/users/${encodeURIComponent(username)}`),
 }

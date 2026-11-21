@@ -45,6 +45,7 @@ class ProfileIn(BaseModel):
     telegram: str = ""
     github: str = ""
     maxsite: str = ""
+    emoji: str = ""
     avatar: Optional[str] = None
 
 
@@ -119,6 +120,8 @@ def _user_mini(row: sqlite3.Row) -> Dict[str, Any]:
     first = row["first_name"]
     last = row["last_name"]
     keys = row.keys()
+    xp = int(row["xp"]) if "xp" in keys else 0
+    level = domain.level_for(xp)["level"]
     return {
         "id": row["user_id"] if "user_id" in keys else row["id"],
         "username": row["username"],
@@ -128,6 +131,8 @@ def _user_mini(row: sqlite3.Row) -> Dict[str, Any]:
         "university": row["university"],
         "faculty": row["faculty"],
         "avatar": row["avatar"],
+        "emoji": (row["emoji"] if "emoji" in keys else "") or "",
+        "level": level,
     }
 
 
@@ -205,6 +210,7 @@ def _me(conn: sqlite3.Connection, user_id: int) -> Dict[str, Any]:
             "telegram": row["telegram"],
             "github": row["github"] if "github" in row.keys() else "",
             "maxsite": row["maxsite"] if "maxsite" in row.keys() else "",
+            "emoji": (row["emoji"] if "emoji" in row.keys() else "") or "",
             "xp": row["xp"],
             "level": domain.level_for(row["xp"]),
             "levelShort": _level_short(row["xp"]),
@@ -252,7 +258,8 @@ def _latest_statuses(conn: sqlite3.Connection, now: int) -> Dict[int, sqlite3.Ro
     rows = conn.execute(
         """
         SELECT s.*, u.id AS user_id, u.first_name, u.last_name, u.username,
-               u.university, u.faculty, u.avatar
+               u.university, u.faculty, u.avatar, u.xp,
+               COALESCE(u.emoji, '') AS emoji
         FROM statuses s
         JOIN users u ON u.id = s.user_id
         JOIN (
@@ -308,6 +315,7 @@ def _post_row(conn: sqlite3.Connection, post_id: int, me_id: int) -> Optional[sq
     return conn.execute(
         """
         SELECT po.*, u.first_name, u.last_name, u.username, u.university, u.faculty, u.avatar,
+               u.xp, COALESCE(u.emoji, '') AS emoji,
                pl.name AS place_name, pl.lat AS place_lat, pl.lng AS place_lng,
                pl.kind AS place_kind,
                (SELECT COUNT(*) FROM responses r WHERE r.post_id = po.id) AS responders,
@@ -370,6 +378,7 @@ def _posts(
 ) -> List[Dict[str, Any]]:
     sql = """
         SELECT po.*, u.first_name, u.last_name, u.username, u.university, u.faculty, u.avatar,
+               u.xp, COALESCE(u.emoji, '') AS emoji,
                pl.name AS place_name, pl.lat AS place_lat, pl.lng AS place_lng,
                pl.kind AS place_kind,
                (SELECT COUNT(*) FROM responses r WHERE r.post_id = po.id) AS responders,
@@ -439,13 +448,15 @@ def create_app(db_path: str, seed_demo: bool = False) -> FastAPI:
     app = FastAPI(title="nearby API", version="1.0.0", docs_url="/api/docs", openapi_url="/api/openapi.json")
     app.state.db_path = db_path
     db.init_db(db_path)
-    # migrate existing DBs: add github/maxsite columns if missing
+    # migrate existing DBs: add github/maxsite/emoji columns if missing
     with db.session(db_path) as _mconn:
         cols = [row[1] for row in _mconn.execute("PRAGMA table_info(users)").fetchall()]
         if "github" not in cols:
             _mconn.execute("ALTER TABLE users ADD COLUMN github TEXT NOT NULL DEFAULT ''")
         if "maxsite" not in cols:
             _mconn.execute("ALTER TABLE users ADD COLUMN maxsite TEXT NOT NULL DEFAULT ''")
+        if "emoji" not in cols:
+            _mconn.execute("ALTER TABLE users ADD COLUMN emoji TEXT NOT NULL DEFAULT ''")
     if seed_demo:
         with db.session(db_path) as conn:
             seed.seed(conn)
@@ -524,11 +535,23 @@ def create_app(db_path: str, seed_demo: bool = False) -> FastAPI:
             raise HTTPException(status_code=400, detail=str(exc))
         github = payload.github.strip()
         maxsite = payload.maxsite.strip()
+        emoji = payload.emoji.strip()
         if github and not (github.startswith("https://github.com/") or github.startswith("http://github.com/")):
             raise HTTPException(status_code=400, detail="Ссылка на GitHub должна начинаться с https://github.com/")
         if maxsite and not (maxsite.startswith("https://vk.com/") or maxsite.startswith("http://vk.com/") or
                             maxsite.startswith("https://max.ru/") or maxsite.startswith("http://max.ru/")):
             raise HTTPException(status_code=400, detail="Ссылка на VK/Max должна начинаться с https://vk.com/ или https://max.ru/")
+        # validate emoji: must be a single emoji char or empty; require level >= 2
+        if emoji:
+            user_row = conn.execute("SELECT xp FROM users WHERE id = ?", (int(user["id"]),)).fetchone()
+            user_level = domain.level_for(int(user_row["xp"]))["level"] if user_row else 1
+            if user_level < 2:
+                raise HTTPException(status_code=403, detail="Эмодзи доступно с уровня 2")
+            import unicodedata
+            # allow only a single grapheme cluster that is an emoji/symbol
+            stripped = emoji.strip()
+            if len(stripped) > 8 or not stripped:
+                raise HTTPException(status_code=400, detail="Выбери один эмодзи")
         avatar = payload.avatar
         if avatar:
             if not avatar.startswith("data:image/") or len(avatar) > 2_000_000:
@@ -539,15 +562,54 @@ def create_app(db_path: str, seed_demo: bool = False) -> FastAPI:
             conn.execute("ALTER TABLE users ADD COLUMN github TEXT NOT NULL DEFAULT ''")
         if "maxsite" not in cols:
             conn.execute("ALTER TABLE users ADD COLUMN maxsite TEXT NOT NULL DEFAULT ''")
+        if "emoji" not in cols:
+            conn.execute("ALTER TABLE users ADD COLUMN emoji TEXT NOT NULL DEFAULT ''")
         conn.execute(
             """
             UPDATE users SET first_name = ?, last_name = ?, faculty = ?, telegram = ?,
-                             github = ?, maxsite = ?, avatar = ?
+                             github = ?, maxsite = ?, emoji = ?, avatar = ?
             WHERE id = ?
             """,
-            (first, last, faculty, telegram, github, maxsite, avatar or user["avatar"], int(user["id"])),
+            (first, last, faculty, telegram, github, maxsite, emoji, avatar or user["avatar"], int(user["id"])),
         )
         return {"me": _me(conn, int(user["id"]))}
+
+    @app.get("/api/users/{username}")
+    def user_profile(
+        username: str,
+        user: sqlite3.Row = Depends(_current_user),
+        conn: sqlite3.Connection = Depends(_conn),
+    ) -> Dict[str, Any]:
+        row = conn.execute(
+            "SELECT * FROM users WHERE username = ? COLLATE NOCASE", (username,)
+        ).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Пользователь не найден")
+        uid = int(row["id"])
+        counts = _counts(conn, uid)
+        xp = int(row["xp"])
+        cols = row.keys()
+        return {
+            "id": uid,
+            "username": row["username"],
+            "firstName": row["first_name"],
+            "lastName": row["last_name"],
+            "name": f"{row['first_name']} {row['last_name']}".strip(),
+            "university": row["university"],
+            "faculty": row["faculty"],
+            "city": domain.CITY,
+            "avatar": row["avatar"],
+            "telegram": row["telegram"],
+            "github": row["github"] if "github" in cols else "",
+            "maxsite": row["maxsite"] if "maxsite" in cols else "",
+            "emoji": (row["emoji"] if "emoji" in cols else "") or "",
+            "xp": xp,
+            "level": domain.level_for(xp),
+            "levelShort": _level_short(xp),
+            "counts": counts,
+            "createdAt": row["created_at"],
+            "isMe": uid == int(user["id"]),
+        }
 
     @app.get("/api/bootstrap")
     def bootstrap(
@@ -674,7 +736,8 @@ def create_app(db_path: str, seed_demo: bool = False) -> FastAPI:
         row = conn.execute(
             """
             SELECT s.*, u.id AS user_id, u.first_name, u.last_name, u.username,
-                   u.university, u.faculty, u.avatar
+                   u.university, u.faculty, u.avatar, u.xp,
+                   COALESCE(u.emoji, '') AS emoji
             FROM statuses s JOIN users u ON u.id = s.user_id WHERE s.id = ?
             """,
             (int(cursor.lastrowid),),

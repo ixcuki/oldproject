@@ -53,8 +53,10 @@ pip install -r requirements.txt
 # 2. Настроить .env
 cp .env.example .env
 # вставить LLM_API_KEY в .env
----
 ```
+
+---
+
 ## Структура проекта
 
 ```

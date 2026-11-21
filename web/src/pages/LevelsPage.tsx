@@ -28,6 +28,13 @@ const LEVEL_THEMES = [
   { bg: "#FFE2B8", border: "#F2C98E", fg: "#9A5A0C" },
 ]
 
+const LEVEL_PERKS: Record<number, string[]> = {
+  1: [],
+  2: ["Выбор эмодзи рядом с ником"],
+  3: ["Эмодзи рядом с ником", "Золотой никнейм везде в приложении"],
+  4: ["Эмодзи рядом с ником", "Золотой никнейм", "Огненная рамка у аватара 🔥"],
+}
+
 export function LevelsPage() {
   const { me, meta } = useApp()
   const navigate = useNavigate()
@@ -105,6 +112,25 @@ export function LevelsPage() {
                   </span>
                 )}
               </div>
+
+              {/* perks */}
+              {LEVEL_PERKS[number]?.length > 0 && (
+                <div className="mt-2.5 flex flex-wrap gap-1.5">
+                  {LEVEL_PERKS[number].map((perk) => (
+                    <span
+                      key={perk}
+                      className="rounded-full border border-uni-line bg-uni-soft px-2.5 py-0.5 text-[10px] font-extrabold text-uni-brand-deep"
+                    >
+                      {perk}
+                    </span>
+                  ))}
+                </div>
+              )}
+              {number === 1 && (
+                <p className="mt-2 text-[10.5px] font-semibold text-uni-muted/70">
+                  Начни зарабатывать XP — открой возможности следующих уровней
+                </p>
+              )}
 
               {state === "current" && (
                 <>

@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react"
-import { ArrowLeftRight, HeartHandshake, Users } from "lucide-react"
+import { useEffect, useMemo, useState } from "react"
+import { ArrowLeftRight, HeartHandshake, MapPin, Navigation, Users } from "lucide-react"
 import {
   Sheet,
   SheetContent,
@@ -20,7 +20,9 @@ import {
 import { useApp } from "@/store/AppContext"
 import { useToast } from "@/components/ToastProvider"
 import { api } from "@/lib/api"
-import { cn } from "@/lib/utils"
+import { cn, haversineM } from "@/lib/utils"
+
+const POST_RADIUS_M = 1000
 
 type PostSheetProps = {
   open: boolean
@@ -35,13 +37,21 @@ const CATEGORY_ICONS = {
 } as const
 
 export function PostSheet({ open, onOpenChange, defaultCategory }: PostSheetProps) {
-  const { meta, places, applyPost, applyMe } = useApp()
+  const { meta, places, position, applyPost, applyMe } = useApp()
   const { toast } = useToast()
   const [category, setCategory] = useState(defaultCategory ?? "activity")
   const [text, setText] = useState("")
+  // "none" = no place, "geo" = my location (no placeId), or a place id string
   const [placeId, setPlaceId] = useState("none")
   const [busy, setBusy] = useState(false)
   const categories = Object.entries(meta?.postCategories ?? {})
+
+  const nearbyPlaces = useMemo(() => {
+    if (!position) return places
+    return places.filter(
+      (p) => haversineM(position.lat, position.lng, p.lat, p.lng) <= POST_RADIUS_M,
+    )
+  }, [places, position])
 
   useEffect(() => {
     if (!open) return
@@ -58,10 +68,12 @@ export function PostSheet({ open, onOpenChange, defaultCategory }: PostSheetProp
     }
     setBusy(true)
     try {
+      const resolvedPlaceId =
+        placeId === "none" || placeId === "geo" ? null : Number(placeId)
       const response = await api.createPost({
         category,
         text: text.trim(),
-        placeId: placeId === "none" ? null : Number(placeId),
+        placeId: resolvedPlaceId,
       })
       applyPost(response.post)
       applyMe(response.me)
@@ -73,6 +85,9 @@ export function PostSheet({ open, onOpenChange, defaultCategory }: PostSheetProp
       setBusy(false)
     }
   }
+
+  const selectedPlace = nearbyPlaces.find((p) => String(p.id) === placeId)
+    ?? places.find((p) => String(p.id) === placeId)
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -153,21 +168,56 @@ export function PostSheet({ open, onOpenChange, defaultCategory }: PostSheetProp
 
           <div className="space-y-1.5">
             <Label className="text-[12px] font-extrabold text-uni-muted">
-              Где встретимся <span className="text-uni-muted/70">— необязательно</span>
+              Где встретимся{" "}
+              <span className="font-bold text-uni-muted/70">— необязательно</span>
             </Label>
             <Select value={placeId} onValueChange={setPlaceId}>
               <SelectTrigger className="h-12 w-full rounded-[14px] border-uni-line bg-white px-3.5 text-[14px] font-bold">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="max-h-[240px]">
+              <SelectContent className="max-h-[260px]">
                 <SelectItem value="none">Без привязки к месту</SelectItem>
-                {places.map((place) => (
+                {position && (
+                  <SelectItem value="geo">
+                    <span className="flex items-center gap-1.5">
+                      <Navigation size={13} className="shrink-0 text-uni-brand" />
+                      Моё местоположение
+                    </span>
+                  </SelectItem>
+                )}
+                {nearbyPlaces.map((place) => (
+                  <SelectItem key={place.id} value={String(place.id)}>
+                    {place.name}
+                  </SelectItem>
+                ))}
+                {!position && places.map((place) => (
                   <SelectItem key={place.id} value={String(place.id)}>
                     {place.name}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+            {placeId === "geo" && position && (
+              <div className="flex items-center gap-1.5 text-[11.5px] font-bold text-uni-brand">
+                <Navigation size={12} />
+                Привязано к вашей геопозиции
+              </div>
+            )}
+            {selectedPlace && (
+              <div className="flex items-center gap-1.5 text-[11.5px] font-bold text-uni-muted">
+                <MapPin size={13} /> {selectedPlace.kindLabel} · {selectedPlace.address}
+              </div>
+            )}
+            {position && nearbyPlaces.length === 0 && (
+              <p className="text-[11px] font-semibold text-uni-muted/70">
+                Нет мест в радиусе 1 км
+              </p>
+            )}
+            {!position && (
+              <p className="text-[11px] font-semibold text-uni-muted/70">
+                Включи геолокацию, чтобы видеть ближайшие места и выбрать своё положение
+              </p>
+            )}
           </div>
 
           <div className="flex items-start gap-2 rounded-[14px] bg-uni-soft px-3 py-2.5 text-[11.5px] font-semibold leading-snug text-uni-muted-2">

@@ -4,15 +4,18 @@ import { ArrowLeft, Clock, MapPin, RefreshCw, Star } from "lucide-react"
 import { KIND_META } from "@/components/KindBadge"
 import { Stars } from "@/components/Stars"
 import { Avatar } from "@/components/Avatar"
+import { UserName } from "@/components/UserName"
 import { Countdown } from "@/components/Countdown"
 import { StatusSheet } from "@/components/StatusSheet"
 import { ReviewSheet } from "@/components/ReviewSheet"
+import { UserProfileSheet } from "@/components/UserProfileSheet"
 import { useApp } from "@/store/AppContext"
 import { useToast } from "@/components/ToastProvider"
 import { api } from "@/lib/api"
 import { formatDistance, plural, timeAgo } from "@/lib/format"
 import { useNow } from "@/lib/useNow"
 import { cn } from "@/lib/utils"
+import type { UserMini } from "@/lib/types"
 
 export function PlacePage() {
   const { id } = useParams()
@@ -25,6 +28,7 @@ export function PlacePage() {
   const [loading, setLoading] = useState(!cached)
   const [statusOpen, setStatusOpen] = useState(false)
   const [reviewOpen, setReviewOpen] = useState(false)
+  const [profileUser, setProfileUser] = useState<UserMini | null>(null)
   const now = useNow(30000)
 
   useEffect(() => {
@@ -178,7 +182,9 @@ export function PlacePage() {
           {status ? (
             <>
               <div className="mt-2 flex items-start gap-2.5">
-                <Avatar name={status.author.name} src={status.author.avatar} size={34} radius={11} />
+                <button type="button" onClick={() => setProfileUser(status.author)} className="shrink-0">
+                  <Avatar name={status.author.name} src={status.author.avatar} size={34} radius={11} fire={status.author.levelNum >= 4} />
+                </button>
                 <div className="min-w-0 flex-1">
                   <div className="text-[14px] font-extrabold leading-snug">
                     {status.typeLabel}
@@ -187,9 +193,9 @@ export function PlacePage() {
                   <div className="mt-0.5 text-[12px] font-semibold leading-snug text-uni-muted">
                     {status.text || "Без комментария"}
                   </div>
-                  <div className="mt-1 text-[10.5px] font-bold text-uni-muted">
-                    {status.author.name} · {timeAgo(status.createdAt, now)}
-                  </div>
+                  <button type="button" onClick={() => setProfileUser(status.author)} className="mt-1 text-left text-[10.5px] font-bold text-uni-muted">
+                    <UserName name={status.author.name} emoji={status.author.emoji} level={status.author.levelNum} className="text-[10.5px]" /> · {timeAgo(status.createdAt, now)}
+                  </button>
                 </div>
               </div>
               <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-uni-soft-2">
@@ -238,10 +244,14 @@ export function PlacePage() {
               className="rounded-[18px] border border-uni-card-line bg-white p-3.5 shadow-[0_6px_18px_rgba(124,92,224,0.07)]"
             >
               <div className="flex items-center gap-2.5">
-                <Avatar name={review.author.name} src={review.author.avatar} size={34} radius={11} />
+                <button type="button" onClick={() => setProfileUser(review.author)} className="shrink-0">
+                  <Avatar name={review.author.name} src={review.author.avatar} size={34} radius={11} fire={review.author.levelNum >= 4} />
+                </button>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">
-                    <span className="truncate text-[13px] font-extrabold">{review.author.name}</span>
+                    <button type="button" onClick={() => setProfileUser(review.author)} className="truncate text-left">
+                      <UserName name={review.author.name} emoji={review.author.emoji} level={review.author.levelNum} className="text-[13px]" />
+                    </button>
                     {review.isMine && (
                       <span className="rounded-full bg-uni-soft-2 px-1.5 py-0.5 text-[9px] font-extrabold text-uni-brand-deep">
                         мой отзыв
@@ -298,6 +308,7 @@ export function PlacePage() {
         onOpenChange={setReviewOpen}
         onSaved={(updated) => setPlace(updated)}
       />
+      <UserProfileSheet user={profileUser} onOpenChange={(open) => !open && setProfileUser(null)} />
     </div>
   )
 }

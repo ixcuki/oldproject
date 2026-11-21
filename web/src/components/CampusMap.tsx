@@ -84,6 +84,10 @@ function pinHtml(
   </div>`
 }
 
+function clusterHtml(count: number, hasLive: boolean): string {
+  return `<div class="up-cluster${hasLive ? " up-cluster--live" : ""}">${count}</div>`
+}
+
 export function filterPlaces(places: Place[], filter: MapFilter): Place[] {
   if (filter === "players") return places.filter((p) => p.status?.type === "players")
   if (filter === "events") return places.filter((p) => p.status?.type === "event")
@@ -169,6 +173,63 @@ export function CampusMap({
       const state = stateRef.current
       layer.clearLayers()
       const shown = filterPlaces(state.places, state.filter)
+      const zoom = map.getZoom()
+
+      // --- clustering at zoom < 14 ---
+      if (zoom < 14) {
+        // Grid cell size in px for clustering
+        const CELL = 72
+        const cells = new Map<string, Place[]>()
+        for (const place of shown) {
+          const pt = map.latLngToContainerPoint([place.lat, place.lng])
+          const key = `${Math.floor(pt.x / CELL)}_${Math.floor(pt.y / CELL)}`
+          if (!cells.has(key)) cells.set(key, [])
+          cells.get(key)!.push(place)
+        }
+        for (const [, group] of cells) {
+          if (group.length === 1) {
+            const place = group[0]
+            const selected = place.id === state.selectedId
+            const hot = state.focusIds.includes(place.id)
+            const icon = L.divIcon({
+              className: "up-pin-wrap",
+              html: pinHtml(place, { selected, hot, withLabel: false }),
+              iconSize: [0, 0],
+              iconAnchor: [0, 0],
+            })
+            const marker = L.marker([place.lat, place.lng], {
+              icon,
+              zIndexOffset: selected ? 1000 : hot ? 500 : place.status ? 200 : 0,
+              keyboard: false,
+            })
+            marker.on("click", (event) => {
+              L.DomEvent.stopPropagation(event)
+              callbacks.current.onSelect(place)
+            })
+            marker.addTo(layer)
+          } else {
+            // Find centroid
+            const lat = group.reduce((s, p) => s + p.lat, 0) / group.length
+            const lng = group.reduce((s, p) => s + p.lng, 0) / group.length
+            const hasLive = group.some((p) => p.status)
+            const icon = L.divIcon({
+              className: "up-pin-wrap",
+              html: clusterHtml(group.length, hasLive),
+              iconSize: [0, 0],
+              iconAnchor: [0, 0],
+            })
+            const marker = L.marker([lat, lng], { icon, zIndexOffset: 300, keyboard: false })
+            marker.on("click", (event) => {
+              L.DomEvent.stopPropagation(event)
+              map.flyTo([lat, lng], map.getZoom() + 2, { duration: 0.5 })
+            })
+            marker.addTo(layer)
+          }
+        }
+        return
+      }
+
+      // --- normal pin rendering at zoom >= 14 ---
       const ranked = [...shown].sort((a, b) => {
         const priority = (place: Place): number => {
           if (place.id === state.selectedId) return 100

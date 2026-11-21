@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS users (
     telegram TEXT NOT NULL,
     github TEXT NOT NULL DEFAULT '',
     maxsite TEXT NOT NULL DEFAULT '',
+    emoji TEXT NOT NULL DEFAULT '',
     avatar TEXT,
     xp INTEGER NOT NULL DEFAULT 0,
     created_at INTEGER NOT NULL

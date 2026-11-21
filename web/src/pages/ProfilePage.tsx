@@ -12,6 +12,7 @@ import {
 } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 import { Avatar } from "@/components/Avatar"
+import { UserName } from "@/components/UserName"
 import { SkylinePulse } from "@/components/Brand"
 import { EditProfileSheet } from "@/components/EditProfileSheet"
 import { useApp } from "@/store/AppContext"
@@ -59,17 +60,18 @@ export function ProfilePage() {
       </div>
 
       <div className="relative px-5">
-        <div className="-mt-7 flex items-end gap-3">
+          <div className="-mt-7 flex items-end gap-3">
           <Avatar
             name={me.name}
             src={me.avatar}
             size={68}
             radius={20}
+            fire={me.level.level >= 4}
             className="shadow-[0_8px_24px_rgba(124,92,224,0.25)]"
           />
           <div className="min-w-0 flex-1 pb-1">
-            <h1 className="truncate text-[22px] font-extrabold leading-tight tracking-[-0.02em]">
-              {me.name}
+            <h1 className="truncate text-[22px] leading-tight tracking-[-0.02em]">
+              <UserName name={me.name} emoji={me.emoji} level={me.level.level} className="text-[22px]" />
             </h1>
             <div className="truncate text-[11.5px] font-bold text-uni-muted">
               {me.university} · {me.faculty} ·{" "}

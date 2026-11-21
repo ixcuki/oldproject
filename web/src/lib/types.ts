@@ -23,6 +23,8 @@ export interface UserMini {
   university: string
   faculty: string
   avatar: string | null
+  emoji: string
+  levelNum: number
 }
 
 export interface Achievement {
@@ -42,10 +44,33 @@ export interface Counts {
   places: number
 }
 
+export interface UserProfile {
+  id: number
+  username: string
+  firstName: string
+  lastName: string
+  name: string
+  university: string
+  faculty: string
+  city: string
+  avatar: string | null
+  telegram: string
+  github: string
+  maxsite: string
+  emoji: string
+  xp: number
+  level: Level
+  levelShort: { level: number; name: string; emoji: string }
+  counts: Counts
+  createdAt: number
+  isMe: boolean
+}
+
 export interface Me extends UserMini {
   telegram: string
   github: string
   maxsite: string
+  emoji: string
   xp: number
   level: Level
   levelShort: { level: number; name: string; emoji: string }

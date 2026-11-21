@@ -1,15 +1,17 @@
 import { useMemo, useState } from "react"
 import { ArrowLeftRight, AudioLines, HeartHandshake, MapPin, Plus, Send, Trash2, Users } from "lucide-react"
 import { Avatar } from "@/components/Avatar"
+import { UserName } from "@/components/UserName"
 import { Chip } from "@/components/Chip"
 import { PostSheet } from "@/components/PostSheet"
 import { RespondSheet } from "@/components/RespondSheet"
+import { UserProfileSheet } from "@/components/UserProfileSheet"
 import { useToast } from "@/components/ToastProvider"
 import { useApp } from "@/store/AppContext"
 import { api } from "@/lib/api"
 import { formatDistance, plural, timeAgo } from "@/lib/format"
 import { useNow } from "@/lib/useNow"
-import type { Post } from "@/lib/types"
+import type { Post, UserMini } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
 const CATEGORY_STYLE: Record<
@@ -50,6 +52,7 @@ export function PulsePage() {
   const [filter, setFilter] = useState("all")
   const [postOpen, setPostOpen] = useState(false)
   const [respondTo, setRespondTo] = useState<Post | null>(null)
+  const [profileUser, setProfileUser] = useState<UserMini | null>(null)
 
   const visible = useMemo(
     () => (filter === "all" ? posts : posts.filter((post) => post.category === filter)),
@@ -113,11 +116,15 @@ export function PulsePage() {
               className="animate-float-in rounded-[20px] border bg-white p-3.5 shadow-[0_6px_20px_rgba(124,92,224,0.09)]"
               style={{ borderColor: style.border }}
             >
-              <div className="flex items-center gap-2.5">
-                <Avatar name={post.author.name} src={post.author.avatar} size={38} radius={13} />
+                <div className="flex items-center gap-2.5">
+                <button type="button" onClick={() => setProfileUser(post.author)} className="shrink-0">
+                  <Avatar name={post.author.name} src={post.author.avatar} size={38} radius={13} fire={post.author.levelNum >= 4} />
+                </button>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">
-                    <span className="truncate text-[13.5px] font-extrabold">{post.author.name}</span>
+                    <button type="button" onClick={() => setProfileUser(post.author)} className="truncate text-left">
+                      <UserName name={post.author.name} emoji={post.author.emoji} level={post.author.levelNum} className="text-[13.5px]" />
+                    </button>
                     {post.isMine && (
                       <span className="rounded-full bg-uni-soft-2 px-1.5 py-0.5 text-[9px] font-extrabold text-uni-brand-deep">
                         Я
@@ -223,6 +230,7 @@ export function PulsePage() {
 
       <PostSheet open={postOpen} onOpenChange={setPostOpen} />
       <RespondSheet post={respondTo} onOpenChange={(open) => !open && setRespondTo(null)} />
+      <UserProfileSheet user={profileUser} onOpenChange={(open) => !open && setProfileUser(null)} />
     </div>
   )
 }

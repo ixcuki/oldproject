@@ -28,6 +28,16 @@ type EditProfileSheetProps = {
   onOpenChange: (open: boolean) => void
 }
 
+/** Remove emoji and other non-letter/non-space characters from name fields. */
+function stripEmoji(value: string): string {
+  // Remove anything that is an emoji, pictograph, dingbat, or supplementary symbol.
+  // Keep letters (any script), digits, spaces, hyphens, apostrophes.
+  return value.replace(
+    /[\p{Emoji_Presentation}\p{Extended_Pictographic}\u{1F000}-\u{1FFFF}\u{2600}-\u{27BF}]/gu,
+    "",
+  )
+}
+
 function validateGithub(value: string): string | null {
   if (!value) return null
   if (
@@ -51,6 +61,12 @@ function validateMaxsite(value: string): string | null {
   return null
 }
 
+const EMOJI_OPTIONS = [
+  "🔥", "⚡", "🎯", "🌟", "💡", "🚀", "🎵", "📚",
+  "🌿", "🎨", "🤖", "🦊", "🐱", "🐸", "🌈", "☕",
+  "🏆", "💎", "🎮", "🧩", "🌙", "✨", "🌊", "🍕",
+]
+
 export function EditProfileSheet({ open, onOpenChange }: EditProfileSheetProps) {
   const { me, meta, applyMe } = useApp()
   const { toast } = useToast()
@@ -61,10 +77,13 @@ export function EditProfileSheet({ open, onOpenChange }: EditProfileSheetProps) 
   const [telegram, setTelegram] = useState("")
   const [github, setGithub] = useState("")
   const [maxsite, setMaxsite] = useState("")
+  const [emoji, setEmoji] = useState("")
   const [githubError, setGithubError] = useState<string | null>(null)
   const [maxsiteError, setMaxsiteError] = useState<string | null>(null)
   const [avatar, setAvatar] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+
+  const userLevel = me?.level.level ?? 1
 
   useEffect(() => {
     if (!open || !me) return
@@ -74,6 +93,7 @@ export function EditProfileSheet({ open, onOpenChange }: EditProfileSheetProps) 
     setTelegram(me.telegram)
     setGithub(me.github ?? "")
     setMaxsite(me.maxsite ?? "")
+    setEmoji(me.emoji ?? "")
     setGithubError(null)
     setMaxsiteError(null)
     setAvatar(me.avatar)
@@ -97,6 +117,7 @@ export function EditProfileSheet({ open, onOpenChange }: EditProfileSheetProps) 
         telegram: telegram.trim(),
         github: github.trim(),
         maxsite: maxsite.trim(),
+        emoji: userLevel >= 2 ? emoji : "",
         avatar,
       })
       applyMe(response.me)
@@ -145,6 +166,7 @@ export function EditProfileSheet({ open, onOpenChange }: EditProfileSheetProps) 
                 src={avatar}
                 size={54}
                 radius={18}
+                fire={userLevel >= 4}
               />
               <button
                 type="button"
@@ -179,12 +201,12 @@ export function EditProfileSheet({ open, onOpenChange }: EditProfileSheetProps) 
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-2.5">
+            <div className="grid grid-cols-2 gap-2.5">
             <div className="space-y-1.5">
               <Label className="text-[12px] font-extrabold text-uni-muted">Имя</Label>
               <Input
                 value={firstName}
-                onChange={(event) => setFirstName(event.target.value)}
+                onChange={(event) => setFirstName(stripEmoji(event.target.value))}
                 className={inputClass}
               />
             </div>
@@ -192,7 +214,7 @@ export function EditProfileSheet({ open, onOpenChange }: EditProfileSheetProps) 
               <Label className="text-[12px] font-extrabold text-uni-muted">Фамилия</Label>
               <Input
                 value={lastName}
-                onChange={(event) => setLastName(event.target.value)}
+                onChange={(event) => setLastName(stripEmoji(event.target.value))}
                 className={inputClass}
               />
             </div>
@@ -223,6 +245,49 @@ export function EditProfileSheet({ open, onOpenChange }: EditProfileSheetProps) 
               className={inputClass}
             />
           </div>
+
+          {/* Emoji picker — level 2+ */}
+          {userLevel >= 2 ? (
+            <div className="rounded-[16px] border border-uni-line bg-uni-soft/40 p-3 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <div className="text-[11px] font-extrabold tracking-[0.08em] text-uni-muted uppercase">
+                  Эмодзи рядом с ником
+                </div>
+                {emoji && (
+                  <button
+                    type="button"
+                    onClick={() => setEmoji("")}
+                    className="text-[11px] font-extrabold text-uni-pink"
+                  >
+                    Убрать
+                  </button>
+                )}
+              </div>
+              <div className="grid grid-cols-8 gap-1.5">
+                {EMOJI_OPTIONS.map((e) => (
+                  <button
+                    key={e}
+                    type="button"
+                    onClick={() => setEmoji(e === emoji ? "" : e)}
+                    className={`flex h-9 w-full items-center justify-center rounded-[10px] border text-[18px] transition-all ${
+                      emoji === e
+                        ? "border-uni-brand bg-uni-soft shadow-[0_0_10px_rgba(124,92,224,0.2)]"
+                        : "border-uni-line bg-white"
+                    }`}
+                  >
+                    {e}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[10.5px] font-semibold text-uni-muted/70">
+                Эмодзи отображается рядом с твоим именем везде в приложении.
+              </p>
+            </div>
+          ) : (
+            <div className="rounded-[16px] border border-dashed border-uni-line bg-uni-soft/30 px-3.5 py-3 text-[11.5px] font-semibold text-uni-muted">
+              🔒 Эмодзи рядом с ником откроется на уровне 2 — «Исследователь»
+            </div>
+          )}
 
           <div className="rounded-[16px] border border-uni-line bg-uni-soft/40 p-3 space-y-3">
             <div className="text-[11px] font-extrabold tracking-[0.08em] text-uni-muted uppercase">
